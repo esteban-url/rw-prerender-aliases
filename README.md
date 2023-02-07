@@ -1,121 +1,257 @@
-# README
+When you use typescript path aliases to have shorther imports prerendering does not work.
 
-Welcome to [RedwoodJS](https://redwoodjs.com)!
+You can configure webpack/vite to run the dev server build if there are no prerendered routes. but if there are, the build will break. AFAICT, there is no way to configure the prerendering process.
 
-> **Prerequisites**
->
-> - Redwood requires [Node.js](https://nodejs.org/en/) (>=14.19.x <=16.x) and [Yarn](https://yarnpkg.com/) (>=1.15)
-> - Are you on Windows? For best results, follow our [Windows development setup](https://redwoodjs.com/docs/how-to/windows-development-setup) guide
 
-Start by installing dependencies:
+## Reproduction steps
 
-```
-yarn install
-```
+### golden path
 
-Then change into that directory and start the development server:
+1. Create a new project, make it a typescript project
 
-```
-cd my-redwood-project
-yarn redwood dev
-```
+    ```sh
+    yarn create redwood-app rw-prerender-aliases
+    ```
 
-Your browser should automatically open to http://localhost:8910 where you'll see the Welcome Page, which links out to a ton of great resources.
+1. Add a new component
 
-> **The Redwood CLI**
->
-> Congratulations on running your first Redwood CLI command!
-> From dev to deploy, the CLI is with you the whole way.
-> And there's quite a few commands at your disposal:
-> ```
-> yarn redwood --help
-> ```
-> For all the details, see the [CLI reference](https://redwoodjs.com/docs/cli-commands).
+    ```sh
+    yarn rw g component Hello
+    ```
 
-## Prisma and the database
+    ```tsx
+    // src/components/ui/Hello/Hello.tsx
+    const Hello = () => {
+      return <h2>Hi!</h2>
+    }
 
-Redwood wouldn't be a full-stack framework without a database. It all starts with the schema. Open the [`schema.prisma`](api/db/schema.prisma) file in `api/db` and replace the `UserExample` model with the following `Post` model:
+    export default Hello
+    ```
 
-```
-model Post {
-  id        Int      @id @default(autoincrement())
-  title     String
-  body      String
-  createdAt DateTime @default(now())
-}
-```
+1. Add another component
 
-Redwood uses [Prisma](https://www.prisma.io/), a next-gen Node.js and TypeScript ORM, to talk to the database. Prisma's schema offers a declarative way of defining your app's data models. And Prisma [Migrate](https://www.prisma.io/migrate) uses that schema to make database migrations hassle-free:
+    ```sh
+    yarn rw g component Emoji
+    ```
 
-```
-yarn rw prisma migrate dev
+    ```tsx
+    // src/components/ui/Emoji/Emoji.tsx
 
-# ...
+    const Emoji = () => {
+      const randomEmoji = () => {
+        const emojis = ['👍', '👌', '👏', '🙌', '🤙', '🤘', '🤝', '👋']
+        const randomIndex = Math.floor(Math.random() * emojis.length)
+        return emojis[randomIndex]
+      }
 
-? Enter a name for the new migration: › create posts
-```
+      return <span role="img">{randomEmoji()}</span>
+    }
 
-> `rw` is short for `redwood`
+    export default Emoji
+    ```
 
-You'll be prompted for the name of your migration. `create posts` will do.
+1. Add a new page with the two components
 
-Now let's generate everything we need to perform all the CRUD (Create, Retrieve, Update, Delete) actions on our `Post` model:
+    ```sh
+    yarn rw g page home
+    ```
 
-```
-yarn redwood g scaffold post
-```
+    ```tsx
+    // src/pages/HomePage/HomePage.tsx
 
-Navigate to http://localhost:8910/posts/new, fill in the title and body, and click "Save":
+    import { MetaTags } from '@redwoodjs/web'
 
-Did we just create a post in the database? Yup! With `yarn rw g scaffold <model>`, Redwood created all the pages, components, and services necessary to perform all CRUD actions on our posts table.
+    import Emoji from 'src/components/ui/Emoji/Emoji'
+    import Hello from 'src/components/ui/Hello/Hello'
 
-## Frontend first with Storybook
+    const HomePage = () => {
+      return (
+        <>
+          <MetaTags title="Home" description="Home page" />
+          <Hello />
+          <Emoji />
+        </>
+      )
+    }
 
-Don't know what your data models look like?
-That's more than ok—Redwood integrates Storybook so that you can work on design without worrying about data.
-Mockup, build, and verify your React components, even in complete isolation from the backend:
+    export default HomePage
+    ```
 
-```
-yarn rw storybook
-```
+1. Enable prerendering for the home page
 
-Before you start, see if the CLI's `setup ui` command has your favorite styling library:
+    ```tsx
+    // web/src/Routes.tsx
+    import { Router, Route } from '@redwoodjs/router'
 
-```
-yarn rw setup ui --help
-```
+    const Routes = () => {
+      return (
+        <Router>
+          <Route path="/" page={HomePage} name="home" prerender />
+          <Route notfound page={NotFoundPage} />
+        </Router>
+      )
+    }
 
-## Testing with Jest
+    export default Routes
+    ```
 
-It'd be hard to scale from side project to startup without a few tests.
-Redwood fully integrates Jest with the front and the backends and makes it easy to keep your whole app covered by generating test files with all your components and services:
+1. Make sure everything works
 
-```
-yarn rw test
-```
+    Run the dev server, reload the page a few times to get different emojis
 
-To make the integration even more seamless, Redwood augments Jest with database [scenarios](https://redwoodjs.com/docs/testing.md#scenarios)  and [GraphQL mocking](https://redwoodjs.com/docs/testing.md#mocking-graphql-calls).
+    ```sh
+    yarn rw dev
+    ```
 
-## Ship it
+    Run the tests, everything should pass
 
-Redwood is designed for both serverless deploy targets like Netlify and Vercel and serverful deploy targets like Render and AWS:
+    ```sh
+    yarn rw test
+    ```
 
-```
-yarn rw setup deploy --help
-```
+    Build the project, everything should work, including prerendering
 
-Don't go live without auth!
-Lock down your front and backends with Redwood's built-in, database-backed authentication system ([dbAuth](https://redwoodjs.com/docs/authentication#self-hosted-auth-installation-and-setup)), or integrate with nearly a dozen third party auth providers:
+    ```sh
+    yarn rw build
+    ```
 
-```
-yarn rw setup auth --help
-```
+### let's break it
 
-## Next Steps
+1. Add an alias for the `ui` directory
 
-The best way to learn Redwood is by going through the comprehensive [tutorial](https://redwoodjs.com/docs/tutorial/foreword) and joining the community (via the [Discourse forum](https://community.redwoodjs.com) or the [Discord server](https://discord.gg/redwoodjs)).
+    ```js
+    // web/tsconfig.json
+    {
+      "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+          "src/*": [
+            "./src/*",
+            "../.redwood/types/mirror/web/src/*",
+            "../api/src/*",
+            "../.redwood/types/mirror/api/src/*"
+          ],
+          "@ui/*": ["./src/components/ui/*"],
+          ...
+        }
+      }
+    }
+    ```
+1. update the imports
 
-## Quick Links
+    ```tsx
+    // src/pages/HomePage/HomePage.tsx
 
-- Stay updated: read [Forum announcements](https://community.redwoodjs.com/c/announcements/5), follow us on [Twitter](https://twitter.com/redwoodjs), and subscribe to the [newsletter](https://redwoodjs.com/newsletter)
-- [Learn how to contribute](https://redwoodjs.com/docs/contributing)
+    import Emoji from '@ui/Emoji/Emoji'
+    import Hello from '@ui/Hello/Hello'
+    ```
+
+    > Note: I'm using `@ui` as the alias, but it could be anything
+
+1. Make sure everything still works
+
+    Run the dev server, reload the page a few times to get different emojis
+
+    ```sh
+    yarn rw dev
+    ```
+
+    ```
+    Compiled with problems:
+
+    ERROR in ./src/pages/HomePage/HomePage.tsx 4:0-36
+
+    Module not found: Error: Can't resolve '@ui/Emoji/Emoji' in '/Users/esteban/files/github/esteban-url/rw-prerender-aliases/web/src/pages/HomePage'
+
+
+    ERROR in ./src/pages/HomePage/HomePage.tsx 5:0-36
+
+    Module not found: Error: Can't resolve '@ui/Hello/Hello' in '/Users/esteban/files/github/esteban-url/rw-prerender-aliases/web/src/pages/HomePage'
+    ```
+
+    😭 the page doesn't load anymore, the aliases are not being resolved!
+
+    Run the tests
+
+    ```sh
+    yarn rw test
+    ```
+    ```
+    FAIL   web  web/src/pages/HomePage/HomesPage.test.tsx
+    ● Test suite failed to run
+
+      Cannot find module '@ui/Emoji/Emoji' from 'web/src/pages/HomePage/HomePage.tsx'
+    ```
+    😭 the page test fails, the aliases are not being resolved!
+
+    Build the project
+
+    ```sh
+    yarn rw build
+    ```
+
+    ```
+    Command failed with exit code 1:
+    ...
+    ERROR in ./src/pages/HomePage/HomePage.tsx 2:0-36
+    Module not found: Error: Can't resolve '@ui/Emoji/Emoji'
+    ```
+    😭 the build fails, the aliases are not being resolved!
+
+### let's try to fix it
+
+1. Configure webpack (I tried the 4.1-RC with vite, but the same problem happens)
+
+    ```sh
+    yarn rw setup webpack
+    ```
+
+1. Add the alias to the webpack config
+
+    ```js
+    // web/config/webpack.config.js
+
+    const path = require('path')
+
+    /** @returns {import('webpack').Configuration} Webpack Configuration */
+    module.exports = (config, { mode }) => {
+      if (mode === 'development') {
+        // Add dev plugin
+      }
+      config.resolve = {
+        ...config.resolve,
+        alias: {
+          ...config.resolve.alias,
+          '@ui': path.resolve(__dirname, '../src/components/ui'),
+        },
+      }
+      return config
+    }
+    ```
+
+    At this point:
+    - dev server works! ✨
+    - tests still fail 😭
+    - build still fails 😭
+
+
+1. configure the Jest config
+
+    ```js
+    // web/jest.config.js
+
+    const config = {
+      rootDir: '../',
+      preset: '@redwoodjs/testing/config/jest/web',
+      moduleNameMapper: {
+        '^@ui/(.*)': '<rootDir>/web/src/components/ui/$1',
+      },
+    }
+
+    module.exports = config
+    ```
+
+    At this point:
+    - dev server works! ✨
+    - tests are passing! ✨
+    - build still fails and there is no way to configure the prerender process 😭😭😭😭
