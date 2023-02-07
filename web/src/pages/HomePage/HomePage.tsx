@@ -1,7 +1,7 @@
-import { MetaTags } from '@redwoodjs/web'
+import Emoji from '@ui/Emoji/Emoji'
+import Hello from '@ui/Hello/Hello'
 
-import Emoji from 'src/components/ui/Emoji/Emoji'
-import Hello from 'src/components/ui/Hello/Hello'
+import { MetaTags } from '@redwoodjs/web'
 
 const HomePage = () => {
   return (
